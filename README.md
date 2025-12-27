@@ -9,7 +9,7 @@ It allows flexible student entry, bulk upload via CSV/Excel, defaulter tracking,
 - ➕ **Add Students Manually** — Enter register number and name directly.
 - 📂 **Bulk Upload** — Upload student lists via CSV or Excel (supports flexible headers like `Roll` or `Register Number`).
 - 📋 **Student Table** — View all students with completion status and remove option.
-- ✅ **Defaulter Finder**  
+- ✅ **Student Finder**  
   - By completion status (who hasn’t finished work).  
   - By specific register numbers (comma-separated input).
 - 📤 **Download Options**  
