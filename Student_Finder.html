@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Student Finder</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- CSV Parser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <!-- Excel Parser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="bg-light">
+  <div class="container mt-5">
+    <h1 class="text-center mb-4" style="font-family: 'Times New Roman', Times, serif;
+                                        font-weight: 400;
+                                        background-color: darkblue;
+                                        color: white;">Student Finder</h1>
+    
+    <!-- Student Entry -->
+    <div class="mb-3">
+      <label class="form-label">Add Student:</label>
+      <div class="input-group">
+        <input type="text" id="rollInput" class="form-control" placeholder="Register Number">
+        <input type="text" id="nameInput" class="form-control" placeholder="Name">
+        <button class="btn btn-secondary" onclick="addStudent()">Add</button>
+      </div>
+    </div>
+
+    <!-- File Upload -->
+    <div class="mb-3">
+      <label class="form-label">Upload Student List (CSV/Excel) [header format: Register Number, Name]:</label>
+      <input type="file" id="fileInput" class="form-control" accept=".csv,.xlsx" onchange="uploadFile(event)">
+    </div>
+
+    <!-- Student Table -->
+    <div style="overflow-y: scroll; height: 40vh;">
+    <table class="table table-bordered mt-3">
+      <thead class="table-dark">
+        <tr>
+          <th>Register Number</th>
+          <th>Name</th>
+          <th>Completed?</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="studentTable"></tbody>
+    </table>
+    </div>
+
+    <!-- Option 1 -->
+    <button class="btn btn-primary" onclick="findDefaultersByCompleted()">Find Defaulters (By Completed)</button>
+
+    <!-- Option 2 -->
+    <div class="mt-3">
+      <label class="form-label">Enter Register number of students in search (comma separated):</label>
+      <input type="text" id="defaulterInput" class="form-control" placeholder="e.g. 510001,510304">
+      <button class="btn btn-warning mt-2" onclick="findDefaultersByInput()">Find Students (By Roll Numbers)</button>
+    </div>
+
+    <!-- Results -->
+    <div class="mt-4">
+      <!-- Download Options -->
+      <h4>Here is the list of students you searched for,</h4>
+      <ul id="defaulterOutput" class="list-group"></ul>
+      <div class="mt-3">
+        <button class="btn btn-success" onclick="downloadDefaulters()">Download Student List (Excel)</button>
+      </div>
+      <br>
+       <h5>Click below button to download total class list</h5>
+      <div class="mt-3">
+        <button class="btn btn-success" onclick="downloadClassList()">Download Total Class List (Excel)</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+let students = JSON.parse(localStorage.getItem("students")) || [];
+
+function saveToLocalStorage() {
+  localStorage.setItem("students", JSON.stringify(students));
+}
+
+function addStudent() {
+  let roll = document.getElementById("rollInput").value.trim();
+  let name = document.getElementById("nameInput").value.trim();
+  if (roll && name) {
+    // Check if roll already exists
+    let existing = students.find(s => s.roll === roll);
+    if (existing) {
+      existing.name = name; // overwrite name
+    } else {
+      students.push({roll, name, completed: false});
+    }
+    saveToLocalStorage();
+    renderTable();
+    document.getElementById("rollInput").value = "";
+    document.getElementById("nameInput").value = "";
+  }
+}
+
+function renderTable() {
+  // Sort students by roll (register number) 
+  students.sort((a, b) => a.roll.localeCompare(b.roll));
+
+  let table = document.getElementById("studentTable");
+  table.innerHTML = "";
+  students.forEach((s, index) => {
+    let row = `<tr>
+      <td>${s.roll}</td>
+      <td>${s.name}</td>
+      <td><input type="checkbox" onchange="toggleCompleted(${index})" ${s.completed ? "checked" : ""}></td>
+      <td><button class="btn btn-sm btn-danger" onclick="removeStudent(${index})">Remove</button></td>
+    </tr>`;
+    table.innerHTML += row;
+  });
+}
+
+function toggleCompleted(index) {
+  students[index].completed = !students[index].completed;
+  saveToLocalStorage();
+}
+
+function removeStudent(index) {
+  students.splice(index, 1);
+  saveToLocalStorage();
+  renderTable();
+}
+
+function findDefaultersByCompleted() {
+  let defaulters = students.filter(s => !s.completed);
+  displayDefaulters(defaulters);
+}
+
+function findDefaultersByInput() {
+  let input = document.getElementById("defaulterInput").value.split(",").map(s => s.trim());
+  let defaulters = students.filter(s => input.includes(s.roll));
+  displayDefaulters(defaulters);
+}
+
+function displayDefaulters(defaulters) {
+  let output = document.getElementById("defaulterOutput");
+  output.innerHTML = "";
+  defaulters.forEach(d => {
+    let li = document.createElement("li");
+    li.className = "list-group-item list-group-item-danger";
+    li.textContent = `Roll No: ${d.roll} - ${d.name}`;
+    output.appendChild(li);
+  });
+}
+
+// Download full class list
+function downloadClassList() {
+    let sorted = [...students].sort((a, b) => a.roll.localeCompare(b.roll));
+    let worksheet = XLSX.utils.json_to_sheet(sorted.map(s => ({ Roll: s.roll, Name: s.name })));
+    let workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "ClassList");
+    XLSX.writeFile(workbook, "class_list.xlsx");
+  }
+
+// Download defaulter list
+function downloadDefaulters() {
+    let defaulters = students.filter(s => !s.completed);
+    let sorted = defaulters.sort((a, b) => a.roll.localeCompare(b.roll));
+    let worksheet = XLSX.utils.json_to_sheet(sorted.map(d => ({ Roll: d.roll, Name: d.name })));
+    let workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Defaulters");
+    XLSX.writeFile(workbook, "defaulter_list.xlsx");
+  }
+
+  function normalizeRow(row) {
+  let keys = Object.keys(row);
+  let rollKey = keys.find(k => k.toLowerCase().includes("roll") || k.toLowerCase().includes("register"));
+  let nameKey = keys.find(k => k.toLowerCase().includes("name"));
+  return { Roll: row[rollKey], Name: row[nameKey] };
+}
+
+// File Upload (CSV/Excel)
+function uploadFile(event) {
+  let file = event.target.files[0];
+  if (!file) return;
+
+  if (file.name.endsWith(".csv")) {
+    Papa.parse(file, {
+      header: true,
+      complete: function(results) {
+        results.data.forEach(row => {
+          let { Roll, Name } = normalizeRow(row);
+          if (Roll && Name) {
+            let existing = students.find(s => s.roll === Roll);
+            if (existing) {
+              existing.name = Name;
+            } else {
+              students.push({roll: Roll, name: Name, completed: false});
+            }
+          }
+        });
+        saveToLocalStorage();
+        renderTable();
+      }
+    });
+  } else if (file.name.endsWith(".xlsx")) {
+    let reader = new FileReader();
+    reader.onload = function(e) {
+      let data = new Uint8Array(e.target.result);
+      let workbook = XLSX.read(data, {type: "array"});
+      let sheet = workbook.Sheets[workbook.SheetNames[0]];
+      let rows = XLSX.utils.sheet_to_json(sheet);
+      rows.forEach(row => {
+      let { Roll, Name } = normalizeRow(row);
+      if (Roll && Name) {
+        let existing = students.find(s => s.roll === Roll);
+        if (existing) {
+          existing.name = Name;
+        } else {
+          students.push({roll: Roll, name: Name, completed: false});
+        }
+      }
+    });
+
+      saveToLocalStorage();
+      renderTable();
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+// Render table on load
+renderTable();
+</script>
+
+<!-- Footer -->
+<footer class="bg-dark text-white text-center mt-5">
+  <p style="margin-top: 5px;
+            margin-bottom: 0;
+            margin-right: 5px;
+            text-align: center;
+            font-style: italic;">Developed by Yashwant Vadhan</p>
+  <p style="margin-top: 2px;
+            margin-bottom: 0;
+            margin-right: 5px;
+            text-align: center;
+            font-style: italic;">B.Tech (AI & DS) | MIT CAMPUS, ANNA UNIVERSITY</p>
+</footer>
+
+</body>
+</html>
