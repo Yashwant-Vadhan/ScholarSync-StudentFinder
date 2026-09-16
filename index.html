@@ -2,246 +2,745 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Student Finder</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScholarSync – Student Finder</title>
+  <meta name="description" content="Track student submissions, identify non-submitters, and export reports with ScholarSync.">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <!-- CSV Parser -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-  <!-- Excel Parser -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0f18;
+      --surface: #161929;
+      --surface2: #1e2235;
+      --border: rgba(255,255,255,0.07);
+      --primary: #6c63ff;
+      --primary-light: #8b85ff;
+      --danger: #ff4d6d;
+      --success: #10d48e;
+      --warning: #f59e0b;
+      --text: #e2e6f0;
+      --text-muted: #7a8099;
+      --radius: 14px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -40%; left: -20%;
+      width: 70%; height: 70%;
+      background: radial-gradient(ellipse, rgba(108,99,255,0.10) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -30%; right: -10%;
+      width: 50%; height: 60%;
+      background: radial-gradient(ellipse, rgba(16,212,142,0.06) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+
+    .wrapper {
+      position: relative; z-index: 1;
+      max-width: 860px; margin: 0 auto;
+      padding: 2.5rem 1.25rem 5rem;
+    }
+
+    /* Header */
+    .header { text-align: center; margin-bottom: 2.5rem; }
+    .header h1 {
+      font-size: 2.1rem; font-weight: 700; letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #8b85ff 0%, #6c63ff 40%, #10d48e 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: 0.3rem;
+    }
+    .header p { color: var(--text-muted); font-size: 0.88rem; }
+
+    /* Card */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.1rem;
+      transition: border-color 0.25s; animation: fadeUp 0.35s ease both;
+    }
+    .card:hover { border-color: rgba(108,99,255,0.25); }
+    .card:nth-child(1) { animation-delay: 0.00s; }
+    .card:nth-child(2) { animation-delay: 0.05s; }
+    .card:nth-child(3) { animation-delay: 0.10s; }
+    .card:nth-child(4) { animation-delay: 0.15s; }
+    .card:nth-child(5) { animation-delay: 0.20s; }
+    .card:nth-child(6) { animation-delay: 0.25s; }
+
+    .card-title {
+      font-size: 0.72rem; font-weight: 600; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 1.1rem;
+    }
+
+    /* Inputs */
+    input[type="text"], input[type="file"] {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 9px; color: var(--text); padding: 0.6rem 0.9rem;
+      font-size: 0.875rem; font-family: 'Inter', sans-serif; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input[type="text"]:focus, input[type="file"]:focus {
+      border-color: var(--primary); box-shadow: 0 0 0 3px rgba(108,99,255,0.15);
+    }
+    input[type="text"]::placeholder { color: var(--text-muted); }
+    input[type="file"] { cursor: pointer; }
+    input[type="file"]::file-selector-button {
+      background: var(--primary); color: white; border: none;
+      padding: 0.45rem 0.9rem; border-radius: 7px; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 0.82rem; font-weight: 500;
+      margin-right: 0.75rem; transition: background 0.2s;
+    }
+    input[type="file"]::file-selector-button:hover { background: var(--primary-light); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.55rem 1.1rem; border-radius: 9px; font-size: 0.85rem;
+      font-weight: 500; font-family: 'Inter', sans-serif;
+      cursor: pointer; border: none; transition: all 0.18s ease; white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.96); }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-light); box-shadow: 0 4px 16px rgba(108,99,255,0.35); }
+    .btn-success { background: var(--success); color: #062a1a; font-weight: 600; }
+    .btn-success:hover { background: #12eea0; box-shadow: 0 4px 16px rgba(16,212,142,0.3); }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-danger:hover { background: #ff6b85; box-shadow: 0 4px 16px rgba(255,77,109,0.3); }
+    .btn-ghost {
+      background: transparent; color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--surface2); color: var(--text); border-color: rgba(255,255,255,0.15); }
+    .btn-warning { background: var(--warning); color: #1a0f00; font-weight: 600; }
+    .btn-warning:hover { background: #fbbf24; box-shadow: 0 4px 16px rgba(245,158,11,0.3); }
+    .btn-icon {
+      padding: 0.5rem 0.65rem; background: var(--surface2);
+      color: var(--text-muted); border: 1px solid var(--border); border-radius: 8px;
+    }
+    .btn-icon:hover { color: var(--danger); border-color: rgba(255,77,109,0.3); background: rgba(255,77,109,0.08); }
+    .btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    .input-row { display: flex; gap: 0.6rem; align-items: center; }
+    .input-row input { flex: 1; min-width: 0; }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex; align-items: center; gap: 1.75rem; flex-wrap: wrap;
+      margin-bottom: 1rem; padding: 1rem 1.25rem;
+      background: var(--surface2); border-radius: 10px; border: 1px solid var(--border);
+    }
+    .stat-item { display: flex; flex-direction: column; gap: 0.1rem; }
+    .stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+    .stat-label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; }
+    .progress-track {
+      flex: 1; min-width: 140px; height: 6px;
+      background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary) 0%, var(--success) 100%);
+      border-radius: 3px; transition: width 0.45s ease;
+    }
+    .progress-pct { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+
+    /* Search */
+    .search-wrapper { position: relative; flex: 1; min-width: 180px; }
+    .search-wrapper input { padding-left: 2.4rem; }
+    .search-icon {
+      position: absolute; left: 0.8rem; top: 50%;
+      transform: translateY(-50%); color: var(--text-muted);
+      font-size: 0.9rem; pointer-events: none; user-select: none;
+    }
+
+    .table-controls {
+      display: flex; align-items: center; gap: 0.6rem;
+      flex-wrap: wrap; margin-bottom: 0.75rem;
+    }
+
+    /* Table */
+    .table-wrapper {
+      overflow-y: auto; max-height: 42vh;
+      border-radius: 10px; border: 1px solid var(--border);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.865rem; }
+    thead th {
+      background: var(--surface2); padding: 0.7rem 1rem; text-align: left;
+      font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.07em; color: var(--text-muted);
+      position: sticky; top: 0; z-index: 2; border-bottom: 1px solid var(--border);
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.025); }
+    tbody tr.row-submitted td:first-child,
+    tbody tr.row-submitted td:nth-child(2) { opacity: 0.42; }
+    tbody td { padding: 0.6rem 1rem; vertical-align: middle; }
+    td.roll-col { font-family: 'Courier New', monospace; font-size: 0.8rem; color: var(--text-muted); }
+
+    input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--success); cursor: pointer; }
+
+    .badge {
+      display: inline-block; padding: 0.15rem 0.55rem;
+      border-radius: 20px; font-size: 0.68rem; font-weight: 600;
+      vertical-align: middle; margin-left: 0.35rem;
+    }
+    .badge-success { background: rgba(16,212,142,0.15); color: var(--success); }
+    .badge-danger  { background: rgba(255,77,109,0.15);  color: var(--danger); }
+    .badge-purple  { background: rgba(108,99,255,0.15);  color: var(--primary-light); }
+
+    .status-msg { font-size: 0.82rem; margin-top: 0.55rem; min-height: 1.1em; line-height: 1.5; }
+
+    .hint-box {
+      background: rgba(108,99,255,0.07); border: 1px solid rgba(108,99,255,0.18);
+      border-radius: 9px; padding: 0.8rem 1rem; font-size: 0.82rem;
+      color: #a8a4ff; margin-bottom: 1rem; line-height: 1.6;
+    }
+    .hint-box strong { color: #c5c2ff; }
+
+    .result-list {
+      list-style: none; display: flex; flex-direction: column; gap: 0.35rem;
+      max-height: 28vh; overflow-y: auto; margin-top: 0.9rem;
+    }
+    .result-list li {
+      display: flex; align-items: center; gap: 0.7rem; border-radius: 8px;
+      padding: 0.5rem 0.9rem; font-size: 0.85rem;
+      background: rgba(255,77,109,0.07); border: 1px solid rgba(255,77,109,0.18);
+    }
+    .result-list li.lookup-item {
+      background: rgba(108,99,255,0.07); border-color: rgba(108,99,255,0.18);
+    }
+    .roll-tag {
+      font-family: 'Courier New', monospace; font-size: 0.78rem;
+      background: rgba(255,77,109,0.14); color: var(--danger);
+      padding: 0.1rem 0.4rem; border-radius: 4px; flex-shrink: 0;
+    }
+    .roll-tag.purple { background: rgba(108,99,255,0.14); color: var(--primary-light); }
+
+    .empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); }
+    .empty-state .icon { font-size: 2.2rem; margin-bottom: 0.4rem; }
+    .empty-state p { font-size: 0.85rem; }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 1.75rem; right: 1.75rem;
+      background: var(--surface2); border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px; padding: 0.7rem 1.2rem;
+      font-size: 0.85rem; color: var(--text);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      opacity: 0; transform: translateY(12px);
+      transition: opacity 0.28s ease, transform 0.28s ease;
+      pointer-events: none; z-index: 999; max-width: 300px;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    footer {
+      text-align: center; margin-top: 3rem; padding: 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted); font-size: 0.78rem; line-height: 1.8;
+    }
+    footer strong { color: #8b85ff; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 580px) {
+      .input-row { flex-direction: column; align-items: stretch; }
+      .stats-bar { gap: 1rem; }
+      .table-controls { flex-direction: column; align-items: stretch; }
+      .header h1 { font-size: 1.6rem; }
+    }
+  </style>
 </head>
-<body class="bg-light">
-  <div class="container mt-5">
-    <h1 class="text-center mb-4" style="font-family: 'Times New Roman', Times, serif;
-                                        font-weight: 400;
-                                        background-color: darkblue;
-                                        color: white;">ScholarSync - Student Finder</h1>
-    
-    <!-- Student Entry -->
-    <div class="mb-3">
-      <label class="form-label">Add Student:</label>
-      <div class="input-group">
-        <input type="text" id="rollInput" class="form-control" placeholder="Register Number">
-        <input type="text" id="nameInput" class="form-control" placeholder="Name">
-        <button class="btn btn-secondary" onclick="addStudent()">Add</button>
+<body>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>&#9889; ScholarSync</h1>
+    <p>Student Submission Tracker &amp; Defaulter Finder</p>
+  </div>
+
+  <!-- 1. Add Student Manually -->
+  <div class="card">
+    <div class="card-title">&#128100; Add Student Manually</div>
+    <div class="input-row">
+      <input type="text" id="rollInput" placeholder="Register Number" />
+      <input type="text" id="nameInput" placeholder="Full Name" />
+      <button class="btn btn-primary" id="addStudentBtn" onclick="addStudent()">Add</button>
+    </div>
+    <div class="status-msg" id="addStatus"></div>
+  </div>
+
+  <!-- 2. Upload Class List -->
+  <div class="card">
+    <div class="card-title">&#128194; Upload Class List</div>
+    <div class="input-row">
+      <input type="file" id="fileInput" accept=".csv,.xlsx" />
+      <button class="btn btn-primary" id="uploadBtn" onclick="uploadFile()">&#11014; Upload</button>
+      <button class="btn btn-icon" id="clearAllBtn" onclick="clearAllStudents()" title="Clear all students">&#128465;</button>
+    </div>
+    <div class="status-msg" id="uploadStatus"></div>
+    <div style="margin-top:0.6rem;font-size:0.76rem;color:var(--text-muted);">
+      Expected columns:
+      <code style="background:var(--surface2);padding:0.1rem 0.35rem;border-radius:4px;font-size:0.74rem;">Register Number</code>
+      and
+      <code style="background:var(--surface2);padding:0.1rem 0.35rem;border-radius:4px;font-size:0.74rem;">Name</code>
+    </div>
+  </div>
+
+  <!-- 3. Class Table -->
+  <div class="card">
+    <div class="card-title">&#128203; Class List</div>
+
+    <!-- Stats -->
+    <div class="stats-bar" id="statsBar" style="display:none;">
+      <div class="stat-item">
+        <span class="stat-value" id="statTotal" style="color:var(--text);">0</span>
+        <span class="stat-label">Total</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="statSubmitted" style="color:var(--success);">0</span>
+        <span class="stat-label">Submitted</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="statPending" style="color:var(--danger);">0</span>
+        <span class="stat-label">Pending</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill" style="width:0%;"></div>
+      </div>
+      <span class="progress-pct" id="progressPct">0% submitted</span>
+    </div>
+
+    <!-- Search + Mark All -->
+    <div class="table-controls">
+      <div class="search-wrapper">
+        <span class="search-icon">&#128269;</span>
+        <input type="text" id="searchInput"
+               placeholder="Search by name or register number..."
+               oninput="renderTable()" />
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-ghost" id="markAllBtn" onclick="markAll(true)" style="font-size:0.8rem;">&#9989; Mark All Submitted</button>
+        <button class="btn btn-ghost" id="unmarkAllBtn" onclick="markAll(false)" style="font-size:0.8rem;">&#8617; Unmark All</button>
       </div>
     </div>
 
-    <!-- File Upload -->
-    <div class="mb-3">
-      <label class="form-label">Upload Student List (CSV/Excel) [header format: Register Number, Name]:</label>
-      <input type="file" id="fileInput" class="form-control" accept=".csv,.xlsx" onchange="uploadFile(event)">
-    </div>
-
-    <!-- Student Table -->
-    <div style="overflow-y: scroll; height: 40vh;">
-    <table class="table table-bordered mt-3">
-      <thead class="table-dark">
-        <tr>
-          <th>Register Number</th>
-          <th>Name</th>
-          <th>Completed?</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody id="studentTable"></tbody>
-    </table>
-    </div>
-
-    <!-- Option 1 -->
-    <button class="btn btn-primary" onclick="findDefaultersByCompleted()">Find Defaulters (By Completed)</button>
-
-    <!-- Option 2 -->
-    <div class="mt-3">
-      <label class="form-label">Enter Register number of students in search (comma separated):</label>
-      <input type="text" id="defaulterInput" class="form-control" placeholder="e.g. 510001,510304">
-      <button class="btn btn-warning mt-2" onclick="findDefaultersByInput()">Find Students (By Roll Numbers)</button>
-    </div>
-
-    <!-- Results -->
-    <div class="mt-4">
-      <!-- Download Options -->
-      <h4>Here is the list of students you searched for,</h4>
-      <ul id="defaulterOutput" class="list-group"></ul>
-      <div class="mt-3">
-        <button class="btn btn-success" onclick="downloadDefaulters()">Download Student List (Excel)</button>
-      </div>
-      <br>
-       <h5>Click below button to download total class list</h5>
-      <div class="mt-3">
-        <button class="btn btn-success" onclick="downloadClassList()">Download Total Class List (Excel)</button>
+    <!-- Table -->
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Register No.</th>
+            <th>Name</th>
+            <th title="Check when a student has submitted / completed the task">Submitted?</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="studentTable"></tbody>
+      </table>
+      <div id="emptyState" class="empty-state" style="display:none;">
+        <div class="icon">&#128237;</div>
+        <p>No students yet. Add manually or upload a class list above.</p>
       </div>
     </div>
   </div>
 
+  <!-- 4. Non-Submitters -->
+  <div class="card">
+    <div class="card-title">&#9888;&#65039; Non-Submitters (Defaulters)</div>
+
+    <div class="hint-box">
+      <strong>How it works:</strong> In the Class List above, <strong>check the box</strong> next to each student who has
+      <strong>submitted / completed</strong> the task. Students whose boxes are <strong>left unchecked</strong>
+      are the non-submitters (defaulters). Click <em>"Show Non-Submitters"</em> to preview, then export.
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-danger" id="showNonSubmittersBtn" onclick="showNonSubmitters()">&#9888;&#65039; Show Non-Submitters</button>
+      <button class="btn btn-success" id="exportNonSubmittersBtn" onclick="downloadNonSubmitters()">&#128229; Export Non-Submitters (Excel)</button>
+    </div>
+
+    <ul class="result-list" id="nonSubmitterList" style="display:none;"></ul>
+    <div class="status-msg" id="nonSubmitterStatus"></div>
+  </div>
+
+  <!-- 5. Look Up by Register Number -->
+  <div class="card">
+    <div class="card-title">&#128269; Look Up Students by Register Number</div>
+    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.8rem;">
+      Enter one or more register numbers (comma-separated) to find specific students and see their submission status.
+    </p>
+    <input type="text" id="lookupInput"
+           placeholder="e.g. 510001, 510304, 510512"
+           style="margin-bottom:0.75rem;" />
+    <div class="btn-group">
+      <button class="btn btn-warning" id="lookupBtn" onclick="lookupStudents()">&#128269; Find Students</button>
+    </div>
+    <ul class="result-list" id="lookupList" style="display:none;"></ul>
+    <div class="status-msg" id="lookupStatus"></div>
+  </div>
+
+  <!-- 6. Export Full List -->
+  <div class="card">
+    <div class="card-title">&#128228; Export Full Class List</div>
+    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.85rem;">
+      Download all students sorted by register number.
+    </p>
+    <button class="btn btn-success" id="downloadClassListBtn" onclick="downloadClassList()">&#128229; Download Full Class List (Excel)</button>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Footer -->
+<footer>
+  <strong>ScholarSync</strong> &mdash; Developed by Yashwant Vadhan<br>
+  B.Tech (AI &amp; DS) &middot; MIT Campus, Anna University
+</footer>
+
 <script>
-let students = JSON.parse(localStorage.getItem("students")) || [];
+  let students = JSON.parse(localStorage.getItem("students")) || [];
 
-function saveToLocalStorage() {
-  localStorage.setItem("students", JSON.stringify(students));
-}
+  function saveToLocalStorage() {
+    localStorage.setItem("students", JSON.stringify(students));
+  }
 
-function addStudent() {
-  let roll = document.getElementById("rollInput").value.trim();
-  let name = document.getElementById("nameInput").value.trim();
-  if (roll && name) {
-    // Check if roll already exists
-    let existing = students.find(s => s.roll === roll);
+  function showToast(msg, duration) {
+    if (duration === undefined) duration = 3000;
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function() { t.classList.remove("show"); }, duration);
+  }
+
+  function setStatus(id, html) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  }
+
+  // Add student
+  function addStudent() {
+    var roll = document.getElementById("rollInput").value.trim();
+    var name = document.getElementById("nameInput").value.trim();
+    if (!roll || !name) {
+      setStatus("addStatus", '<span style="color:var(--warning);">&#9888; Please enter both a register number and a name.</span>');
+      return;
+    }
+    var existing = students.find(function(s) { return s.roll === roll; });
     if (existing) {
-      existing.name = name; // overwrite name
+      existing.name = name;
+      setStatus("addStatus", '<span style="color:var(--warning);">&#9888; Register number <strong>' + roll + '</strong> already exists &mdash; name updated to &ldquo;' + name + '&rdquo;.</span>');
     } else {
-      students.push({roll, name, completed: false});
+      students.push({ roll: roll, name: name, completed: false });
+      setStatus("addStatus", '<span style="color:var(--success);">&#10004; Added <strong>' + name + '</strong> (' + roll + ').</span>');
     }
     saveToLocalStorage();
     renderTable();
     document.getElementById("rollInput").value = "";
     document.getElementById("nameInput").value = "";
   }
-}
 
-function renderTable() {
-  // Sort students by roll (register number) 
-  students.sort((a, b) => a.roll.localeCompare(b.roll));
+  // Render table
+  function renderTable() {
+    students.sort(function(a, b) {
+      return a.roll.localeCompare(b.roll, undefined, { numeric: true });
+    });
 
-  let table = document.getElementById("studentTable");
-  table.innerHTML = "";
-  students.forEach((s, index) => {
-    let row = `<tr>
-      <td>${s.roll}</td>
-      <td>${s.name}</td>
-      <td><input type="checkbox" onchange="toggleCompleted(${index})" ${s.completed ? "checked" : ""}></td>
-      <td><button class="btn btn-sm btn-danger" onclick="removeStudent(${index})">Remove</button></td>
-    </tr>`;
-    table.innerHTML += row;
-  });
-}
+    var query = (document.getElementById("searchInput") ? document.getElementById("searchInput").value : "").toLowerCase().trim();
+    var filtered = query
+      ? students.filter(function(s) {
+          return s.roll.toLowerCase().indexOf(query) !== -1 || s.name.toLowerCase().indexOf(query) !== -1;
+        })
+      : students;
 
-function toggleCompleted(index) {
-  students[index].completed = !students[index].completed;
-  saveToLocalStorage();
-}
+    var tbody = document.getElementById("studentTable");
+    var emptyState = document.getElementById("emptyState");
+    var statsBar = document.getElementById("statsBar");
 
-function removeStudent(index) {
-  students.splice(index, 1);
-  saveToLocalStorage();
-  renderTable();
-}
+    tbody.innerHTML = "";
 
-function findDefaultersByCompleted() {
-  let defaulters = students.filter(s => !s.completed);
-  displayDefaulters(defaulters);
-}
+    if (students.length === 0) {
+      emptyState.style.display = "block";
+      statsBar.style.display = "none";
+    } else {
+      emptyState.style.display = "none";
+      statsBar.style.display = "flex";
 
-function findDefaultersByInput() {
-  let input = document.getElementById("defaulterInput").value.split(",").map(s => s.trim());
-  let defaulters = students.filter(s => input.includes(s.roll));
-  displayDefaulters(defaulters);
-}
-
-function displayDefaulters(defaulters) {
-  let output = document.getElementById("defaulterOutput");
-  output.innerHTML = "";
-  defaulters.forEach(d => {
-    let li = document.createElement("li");
-    li.className = "list-group-item list-group-item-danger";
-    li.textContent = `Roll No: ${d.roll} - ${d.name}`;
-    output.appendChild(li);
-  });
-}
-
-// Download full class list
-function downloadClassList() {
-    let sorted = [...students].sort((a, b) => a.roll.localeCompare(b.roll));
-    let worksheet = XLSX.utils.json_to_sheet(sorted.map(s => ({ Roll: s.roll, Name: s.name })));
-    let workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "ClassList");
-    XLSX.writeFile(workbook, "class_list.xlsx");
-  }
-
-// Download defaulter list
-function downloadDefaulters() {
-    let defaulters = students.filter(s => !s.completed);
-    let sorted = defaulters.sort((a, b) => a.roll.localeCompare(b.roll));
-    let worksheet = XLSX.utils.json_to_sheet(sorted.map(d => ({ Roll: d.roll, Name: d.name })));
-    let workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Defaulters");
-    XLSX.writeFile(workbook, "defaulter_list.xlsx");
-  }
-
-  function normalizeRow(row) {
-  let keys = Object.keys(row);
-  let rollKey = keys.find(k => k.toLowerCase().includes("roll") || k.toLowerCase().includes("register"));
-  let nameKey = keys.find(k => k.toLowerCase().includes("name"));
-  return { Roll: row[rollKey], Name: row[nameKey] };
-}
-
-// File Upload (CSV/Excel)
-function uploadFile(event) {
-  let file = event.target.files[0];
-  if (!file) return;
-
-  if (file.name.endsWith(".csv")) {
-    Papa.parse(file, {
-      header: true,
-      complete: function(results) {
-        results.data.forEach(row => {
-          let { Roll, Name } = normalizeRow(row);
-          if (Roll && Name) {
-            let existing = students.find(s => s.roll === Roll);
-            if (existing) {
-              existing.name = Name;
-            } else {
-              students.push({roll: Roll, name: Name, completed: false});
-            }
-          }
+      if (filtered.length === 0) {
+        var row = document.createElement("tr");
+        row.innerHTML = '<td colspan="4" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No students match your search.</td>';
+        tbody.appendChild(row);
+      } else {
+        filtered.forEach(function(s) {
+          var realIndex = students.indexOf(s);
+          var row = document.createElement("tr");
+          if (s.completed) row.classList.add("row-submitted");
+          row.innerHTML =
+            '<td class="roll-col">' + s.roll + '</td>' +
+            '<td>' + s.name + '</td>' +
+            '<td>' +
+              '<input type="checkbox" ' + (s.completed ? 'checked' : '') + ' onchange="toggleCompleted(' + realIndex + ')" title="Check when this student has submitted / completed the task">' +
+              (s.completed
+                ? ' <span class="badge badge-success">Submitted</span>'
+                : ' <span class="badge badge-danger">Pending</span>') +
+            '</td>' +
+            '<td>' +
+              '<button class="btn btn-ghost" onclick="removeStudent(' + realIndex + ')" style="padding:0.28rem 0.55rem;font-size:0.76rem;color:var(--danger);border-color:rgba(255,77,109,0.2);">&#10005;</button>' +
+            '</td>';
+          tbody.appendChild(row);
         });
-        saveToLocalStorage();
-        renderTable();
       }
-    });
-  } else if (file.name.endsWith(".xlsx")) {
-    let reader = new FileReader();
-    reader.onload = function(e) {
-      let data = new Uint8Array(e.target.result);
-      let workbook = XLSX.read(data, {type: "array"});
-      let sheet = workbook.Sheets[workbook.SheetNames[0]];
-      let rows = XLSX.utils.sheet_to_json(sheet);
-      rows.forEach(row => {
-      let { Roll, Name } = normalizeRow(row);
-      if (Roll && Name) {
-        let existing = students.find(s => s.roll === Roll);
-        if (existing) {
-          existing.name = Name;
-        } else {
-          students.push({roll: Roll, name: Name, completed: false});
-        }
-      }
-    });
+    }
+    updateStats();
+  }
 
+  function updateStats() {
+    var total = students.length;
+    var submitted = students.filter(function(s) { return s.completed; }).length;
+    var pending = total - submitted;
+    var pct = total > 0 ? Math.round((submitted / total) * 100) : 0;
+    document.getElementById("statTotal").textContent = total;
+    document.getElementById("statSubmitted").textContent = submitted;
+    document.getElementById("statPending").textContent = pending;
+    document.getElementById("progressFill").style.width = pct + "%";
+    document.getElementById("progressPct").textContent = pct + "% submitted";
+  }
+
+  function toggleCompleted(index) {
+    students[index].completed = !students[index].completed;
+    saveToLocalStorage();
+    renderTable();
+  }
+
+  function removeStudent(index) {
+    var name = students[index].name;
+    students.splice(index, 1);
+    saveToLocalStorage();
+    renderTable();
+    showToast("Removed " + name);
+  }
+
+  function markAll(value) {
+    if (students.length === 0) { showToast("No students in the list."); return; }
+    students.forEach(function(s) { s.completed = value; });
+    saveToLocalStorage();
+    renderTable();
+    showToast(value ? "All marked as Submitted" : "All marked as Pending");
+  }
+
+  // Non-Submitters
+  function showNonSubmitters() {
+    var list = document.getElementById("nonSubmitterList");
+    list.innerHTML = "";
+    list.style.display = "none";
+
+    if (students.length === 0) {
+      setStatus("nonSubmitterStatus", '<span style="color:var(--warning);">&#9888; No students in the list yet.</span>');
+      return;
+    }
+
+    var nonSubmitters = students.filter(function(s) { return !s.completed; })
+      .sort(function(a, b) { return a.roll.localeCompare(b.roll, undefined, { numeric: true }); });
+
+    if (nonSubmitters.length === 0) {
+      setStatus("nonSubmitterStatus", '<span style="color:var(--success);">&#127881; All ' + students.length + ' students have submitted!</span>');
+      return;
+    }
+
+    setStatus("nonSubmitterStatus",
+      '<span style="color:var(--danger);"><strong>' + nonSubmitters.length + '</strong> of <strong>' + students.length + '</strong> students have <strong>not</strong> submitted.</span>');
+
+    list.style.display = "flex";
+    nonSubmitters.forEach(function(d) {
+      var li = document.createElement("li");
+      li.innerHTML = '<span class="roll-tag">' + d.roll + '</span> ' + d.name;
+      list.appendChild(li);
+    });
+  }
+
+  function downloadNonSubmitters() {
+    if (students.length === 0) { showToast("No students in the list."); return; }
+    var nonSubmitters = students
+      .filter(function(s) { return !s.completed; })
+      .sort(function(a, b) { return a.roll.localeCompare(b.roll, undefined, { numeric: true }); });
+
+    if (nonSubmitters.length === 0) {
+      showToast("No non-submitters - everyone has submitted!");
+      return;
+    }
+
+    var ws = XLSX.utils.json_to_sheet(
+      nonSubmitters.map(function(d) { return { "Register Number": d.roll, "Name": d.name }; })
+    );
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Non-Submitters");
+    XLSX.writeFile(wb, "non_submitters.xlsx");
+    showToast("Exported " + nonSubmitters.length + " non-submitters");
+  }
+
+  // Lookup
+  function lookupStudents() {
+    var raw = document.getElementById("lookupInput").value;
+    var input = raw.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+    var list = document.getElementById("lookupList");
+    list.innerHTML = "";
+    list.style.display = "none";
+
+    if (input.length === 0) {
+      setStatus("lookupStatus", '<span style="color:var(--warning);">&#9888; Enter at least one register number.</span>');
+      return;
+    }
+
+    var found = students.filter(function(s) { return input.indexOf(s.roll) !== -1; })
+      .sort(function(a, b) { return a.roll.localeCompare(b.roll, undefined, { numeric: true }); });
+    var notFound = input.filter(function(r) { return !students.find(function(s) { return s.roll === r; }); });
+
+    if (found.length === 0) {
+      setStatus("lookupStatus", '<span style="color:var(--danger);">No matching students found.</span>');
+      return;
+    }
+
+    var statusMsg = '<span style="color:var(--success);">Found <strong>' + found.length + '</strong> student(s).';
+    if (notFound.length > 0) statusMsg += ' <span style="color:var(--text-muted);">Not found: ' + notFound.join(", ") + '.</span>';
+    statusMsg += '</span>';
+    setStatus("lookupStatus", statusMsg);
+
+    list.style.display = "flex";
+    found.forEach(function(d) {
+      var li = document.createElement("li");
+      li.classList.add("lookup-item");
+      li.innerHTML =
+        '<span class="roll-tag purple">' + d.roll + '</span> ' + d.name +
+        (d.completed
+          ? ' <span class="badge badge-success">Submitted</span>'
+          : ' <span class="badge badge-danger">Pending</span>');
+      list.appendChild(li);
+    });
+  }
+
+  // File upload
+  function normalizeRow(row) {
+    var keys = Object.keys(row);
+    var rollKey = keys.find(function(k) { return k.toLowerCase().indexOf("roll") !== -1 || k.toLowerCase().indexOf("register") !== -1; });
+    var nameKey = keys.find(function(k) { return k.toLowerCase().indexOf("name") !== -1; });
+    return { Roll: row[rollKey], Name: row[nameKey] };
+  }
+
+  function uploadFile() {
+    var fileInput = document.getElementById("fileInput");
+    var file = fileInput.files[0];
+
+    if (!file) {
+      setStatus("uploadStatus", '<span style="color:var(--danger);">&#9888; Please select a file first.</span>');
+      return;
+    }
+
+    var addedCount = 0;
+    var updatedCount = 0;
+
+    function processRows(rows) {
+      rows.forEach(function(row) {
+        var norm = normalizeRow(row);
+        var Roll = norm.Roll, Name = norm.Name;
+        if (Roll && Name) {
+          var existing = students.find(function(s) { return s.roll === String(Roll); });
+          if (existing) {
+            existing.name = Name;
+            updatedCount++;
+          } else {
+            students.push({ roll: String(Roll), name: Name, completed: false });
+            addedCount++;
+          }
+        }
+      });
       saveToLocalStorage();
       renderTable();
-    };
-    reader.readAsArrayBuffer(file);
+      var parts = [];
+      if (addedCount > 0) parts.push('<strong>' + addedCount + '</strong> new');
+      if (updatedCount > 0) parts.push('<strong>' + updatedCount + '</strong> updated');
+      setStatus("uploadStatus",
+        '<span style="color:var(--success);">&#10004; Imported from <em>' + file.name + '</em>: ' + parts.join(", ") + ' student(s).</span>');
+      fileInput.value = "";
+      showToast("Imported " + (addedCount + updatedCount) + " student(s) from " + file.name);
+    }
+
+    if (file.name.endsWith(".csv")) {
+      Papa.parse(file, {
+        header: true, skipEmptyLines: true,
+        complete: function(results) { processRows(results.data); }
+      });
+    } else if (file.name.endsWith(".xlsx")) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var data = new Uint8Array(e.target.result);
+        var workbook = XLSX.read(data, { type: "array" });
+        var sheet = workbook.Sheets[workbook.SheetNames[0]];
+        processRows(XLSX.utils.sheet_to_json(sheet));
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      setStatus("uploadStatus", '<span style="color:var(--danger);">&#9888; Unsupported file type. Please use .csv or .xlsx</span>');
+    }
   }
-}
 
-// Render table on load
-renderTable();
+  // Clear all
+  function clearAllStudents() {
+    if (students.length === 0) { showToast("No students to clear."); return; }
+    if (confirm("Remove all " + students.length + " students? This cannot be undone.")) {
+      students = [];
+      saveToLocalStorage();
+      renderTable();
+      setStatus("uploadStatus", '<span style="color:var(--text-muted);">Student list cleared.</span>');
+    }
+  }
+
+  // Download full list
+  function downloadClassList() {
+    if (students.length === 0) { showToast("No students to export."); return; }
+    var sorted = students.slice().sort(function(a, b) {
+      return a.roll.localeCompare(b.roll, undefined, { numeric: true });
+    });
+    var ws = XLSX.utils.json_to_sheet(
+      sorted.map(function(s) { return { "Register Number": s.roll, "Name": s.name }; })
+    );
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "ClassList");
+    XLSX.writeFile(wb, "class_list.xlsx");
+    showToast("Exported " + sorted.length + " students");
+  }
+
+  // Init
+  renderTable();
 </script>
-
-<!-- Footer -->
-<footer class="bg-dark text-white text-center mt-5">
-  <p style="margin-top: 5px;
-            margin-bottom: 0;
-            margin-right: 5px;
-            text-align: center;
-            font-style: italic;">Developed by Yashwant Vadhan</p>
-  <p style="margin-top: 2px;
-            margin-bottom: 0;
-            margin-right: 5px;
-            text-align: center;
-            font-style: italic;">B.Tech (AI & DS) | MIT CAMPUS, ANNA UNIVERSITY</p>
-</footer>
 
 </body>
 </html>
